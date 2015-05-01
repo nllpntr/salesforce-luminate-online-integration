@@ -1,0 +1,3 @@
+trigger CLIContactUpdate on Contact (before update) {
+	LuminateAPI.synchronizeContacts(Trigger.newMap, Trigger.oldMap);
+}
