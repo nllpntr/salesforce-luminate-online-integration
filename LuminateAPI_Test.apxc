@@ -42,7 +42,7 @@ public class LuminateAPI_Test {
         mapping.Online_Field_Name__c = 'null';
         insert mapping;
         
-        Contact c = ContactGenerator.spawn();
+        Contact c = new Contact(FirstName='Test', LastName='Contact');
         insert c;
         Test.startTest();
         c.FirstName = 'Name Changed';
