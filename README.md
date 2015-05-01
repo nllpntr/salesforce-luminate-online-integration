@@ -8,7 +8,7 @@ CLIContactUpdate.apxt is a before update trigger on Contact, which causes Lumina
 Custom Luminate Mapping records define the link between a Luminate Online database name and the Salesforce API name. The LuminateAPI.synchronizeContacts() method takes Trigger.newMap and Trigger.oldMap to test for changes to whatever fields have been mapped, and pushes the API callout into the Apex batch queue.
 
 # IMPORTANT
-Since I'm still a bit of a noob, and I don't know how to include custom object/field definitions on git-hub, you'll need to install this package from <package url coming soon>. It includes Custom Settings and an object definition that is necessary to configure field mappings between systems.
+Since I'm still a bit of a noob, and I haven't included custom settings and object/field definitions on git-hub yet, you'll need to install this package from &lbrace;package url coming soon&rbrace;. It includes Custom Settings and an object definition that is necessary to configure field mappings between systems.
 
 # post-installation
 Required post-install configuration:
