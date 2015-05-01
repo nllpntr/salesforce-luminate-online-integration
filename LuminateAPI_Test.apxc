@@ -11,7 +11,7 @@ public class LuminateAPI_Test {
     static testMethod void testLuminateAPI() {
         insert test_settings;
         
-        Contact c = ContactGenerator.spawn();
+        Contact c = new Contact(FirstName='Test', LastName='Contact');
         c.cv__Convio_ID__c = 0;
 		insert c;
         
@@ -42,7 +42,7 @@ public class LuminateAPI_Test {
         mapping.Online_Field_Name__c = 'null';
         insert mapping;
         
-        Contact c = new Contact(FirstName='Test', LastName='Contact');
+        Contact c = new Contact(FirstName='Test', LastName='Contact', cv__Convio_Id__c=0);
         insert c;
         Test.startTest();
         c.FirstName = 'Name Changed';
