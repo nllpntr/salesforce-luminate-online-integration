@@ -10,8 +10,8 @@ Custom Luminate Mapping records define the link between a Luminate Online databa
 # IMPORTANT
 Since I'm still a bit of a noob, and I haven't included custom settings and object/field definitions on git-hub yet, you'll need to install this package from &lbrace;package url coming soon&rbrace;. It includes Custom Settings and an object definition that is necessary to configure field mappings between systems.
 
-# post-installation
-Required post-install configuration:
+# Post-Installation
+Required configuration:
  1. Go to Settings->Develop->Custom Settings and click Manage next to "Custom Luminate Integration Settings"
  2. Click New
  3. In the Name field, enter 'LuminateOpenAPISettings' exactly.
