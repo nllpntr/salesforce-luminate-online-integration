@@ -1,0 +1,152 @@
+/* LuminateAPI
+ * Erland Sanborn, Spring 2015
+ * 
+ * This is a batchable class that partially implements Luminate Constituent API callouts to the SRConsAPI endpoint
+ * It is intended to forcibly synchronize offline (LCRM) changes to Online fields, in the event the Service Bus 
+ * fails to sync due to errors in timing, custom triggers, or field updates.
+ */
+
+global class LuminateAPI implements Database.Batchable<sObject>, Database.AllowsCallouts {
+        
+    public static String 						ENDPOINT		= CLI_Settings__c.getAll().get('LuminateOpenAPISettings').SRCons_API_Endpoint__c;
+    public static List<String> 					data			= new List<String>{
+        'api_key=' 				+ CLI_Settings__c.getAll().get('LuminateOpenAPISettings').API_Key__c,
+        'login_name='			+ CLI_Settings__c.getAll().get('LuminateOpenAPISettings').API_Login__c,
+        'login_password=' 		+ CLI_Settings__c.getAll().get('LuminateOpenAPISettings').API_Password__c,
+        'v=1.0',	
+        'response_format=json',
+    	'method=update'
+	};
+    
+    /*** Batchable Functionality ***/
+    global final String query;
+    global List<Decimal> convioIds;
+    global Map<Integer, Map<String, String>> updateMap;
+    global List<String> queryFields;
+    
+    global LuminateAPI(Map<Integer, Map<String, String>> updateMap) {
+        this.convioIds = new List<Decimal>();
+        this.updateMap = updateMap;
+        Set<String> uniqueFields = new Set<String>();
+        for ( Integer cons_id : updateMap.keySet() ) {
+            this.convioIds.add(cons_id);    
+        }
+        this.query = 'Select cv__Convio_Id__c From Contact Where cv__Convio_Id__c in :convioIds';
+	}
+        
+    global Database.QueryLocator start(Database.BatchableContext bc) {
+    	return Database.getQueryLocator(query);
+    }
+    
+    global void execute(Database.BatchableContext bc, List<Contact> members) {
+        for ( Contact member : members ) {
+            updateCLOFields(member);
+        }
+    }
+    
+    global void finish(Database.BatchableContext BC) {
+    	
+    }
+    
+    private void updateCLOFields(Contact member) {
+        
+        Map<String, String> fieldMap = updateMap.get(Integer.valueOf(member.cv__Convio_ID__c));
+        data.add('cons_id=' + Integer.valueOf(member.cv__Convio_ID__c));
+        for ( String field : fieldMap.keySet() ) {
+            data.add(field + '=' + fieldMap.get(field));
+        }
+        
+        LuminateAPI.postApiRequest(data);
+    }
+    
+    /*** Static Methods ***/
+    public static void synchronizeContacts(Map<Id, Contact> triggerNew, Map<Id, Contact> triggerOld) {
+        Map<String, Schema.SObjectField> contactFieldSchema = Schema.SObjectType.Contact.fields.getMap();
+        Map<Integer, Map<String, String>> updateMap = new Map<Integer, Map<String, String>>();
+        
+        List<Custom_Luminate_Field_Mapping__c> fieldMappings = [ Select Salesforce_API_Name__c, Online_Field_Name__c from Custom_Luminate_Field_Mapping__c Where Active__c = true];
+        
+        for ( Id contactId : triggerNew.keySet() ) {
+            Contact newRecord = triggerNew.get(contactId);
+            Contact oldRecord = triggerOld.get(contactId);
+            Map<String, String> fieldMap = new Map<String, String>();
+            
+            for ( Custom_Luminate_Field_Mapping__c contactFieldMap :  fieldMappings) {
+                Schema.SObjectField field = contactFieldSchema.get(contactFieldMap.Salesforce_API_Name__c);
+                Schema.DisplayType fieldType = field.getDescribe().getType();
+                Object recordValue = newRecord.get(contactFieldMap.Salesforce_API_Name__c);
+                String fieldValue = fieldValueToString(recordValue, fieldType);
+                if ( newRecord.get(contactFieldMap.Salesforce_API_Name__c) != oldRecord.get(contactFieldMap.Salesforce_API_Name__c) )
+                    fieldMap.put(contactFieldMap.Online_Field_Name__c, fieldValue);
+            }
+            if ( fieldMap.size() > 0 ) {
+                updateMap.put(Integer.valueOf(newRecord.cv__Convio_ID__c), fieldMap);
+            }
+        }
+        
+        if ( updateMap.size() > 0 ) {
+            LuminateAPI api = new LuminateAPI(updateMap);
+            if ( !Test.isRunningTest() ) Database.executeBatch(api, 100);
+        }
+    }
+    
+    // Static method for pushing an arbitrary map of fields and values to the API. Convio ID is required
+    public static void updateCLOFields(Map<String, String> dataMap) {
+        for ( String field : dataMap.keySet() ) data.add(field + '=' + dataMap.get(field));
+        LuminateAPI.postApiRequest(data); 
+    }
+	
+    
+    public static void postApiRequest(List<String> parameters) {
+        // build HTTP request
+        Http h = new Http();
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(ENDPOINT);
+        req.setMethod('POST');
+        req.setHeader('Content-Type', 'application/x-www-form-urlencoded');
+        req.setCompressed(false);
+        
+        // encode parameter object
+        String body = String.join(parameters, '&');
+        req.setBody(body);
+        
+        // Send POST request
+        try {
+            // does not execute callout in apex tests, to spare the endpoint a flood of wasted API calls
+            if ( !Test.isRunningTest() ) HttpResponse res = h.send(req);
+        }
+        catch(Exception e) {
+            // fail gracefully
+        }
+    }
+    
+    public static String fieldValueToString(Object recordValue, Schema.DisplayType fieldType) {
+        String fieldValue = '';
+        if ( recordValue != null ) {
+            if ( fieldType == Schema.DisplayType.DATE ) {
+                Date d = (Date) recordValue;
+                DateTime dtExp = DateTime.newInstance(d.year(), 
+                                                      d.month(),
+                                                      d.day(), 0, 0, 0);
+                fieldValue = dtExp.format('yyyy-MM-dd')+'T00:00:00';
+            }
+            else if ( fieldType == Schema.DisplayType.DATETIME ) {
+                DateTime dt = (DateTime) recordValue;
+                fieldValue = dt.format('yyyy-MM-dd')+'T00:00:00';
+            }
+            else if ( fieldType == Schema.DisplayType.BOOLEAN ) {
+                fieldValue = (Boolean) recordValue ? 'TRUE' : 'FALSE';
+            }
+            else if ( fieldType == Schema.DisplayType.CURRENCY || fieldType == Schema.DisplayType.DOUBLE ) {
+                fieldValue = Integer.valueOf(recordValue) == Double.valueOf(recordValue) ? String.valueOf(Integer.valueOf(recordValue)) : String.valueOf((Double) recordValue);
+            }
+            else if ( fieldType == Schema.DisplayType.INTEGER ) {
+                fieldValue = String.valueOf((Integer) recordValue);
+            }
+            else {
+                fieldValue = (String) recordValue;
+            }
+        }
+        return fieldValue;
+    }
+}
