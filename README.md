@@ -1,4 +1,4 @@
-# salesforce-luminate-online-integration
+# Salesforce -> Luminate Online Integration
 This is an implementation of Blackbaud Luminate Online APIs in Salesforce, for synchronizing Constituent fields between LCRM and Luminate Online more reliably.
 
 LuminateAPI.apcx is a batchable class that performs callouts to the SRConsAPI endpoint in Luminate Online. Currently, it only supports the "update" method.
