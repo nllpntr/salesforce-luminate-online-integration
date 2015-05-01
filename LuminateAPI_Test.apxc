@@ -1,0 +1,72 @@
+@isTest
+public class LuminateAPI_Test {
+    static List<CLI_Settings__c> test_settings = new List<CLI_Settings__c>{
+        new CLI_Settings__c(Name='LuminateOpenAPISettings', 
+                            API_Key__c='test', 
+                            API_Login__c='test_login', 
+                            API_Password__c='test_password', 
+                            SRCons_API_Endpoint__c='https://test.endpoint.com/')
+    };
+        
+    static testMethod void testLuminateAPI() {
+        insert test_settings;
+        
+        Contact c = ContactGenerator.spawn();
+        c.cv__Convio_ID__c = 0;
+		insert c;
+        
+        Test.startTest();
+        Map<Integer, Map<String, String>> updateMap = new Map<Integer, Map<String, String>>{
+            0 => new Map<String, String>{
+                'null' => 'null'
+			}
+        };
+        LuminateAPI updater = new LuminateAPI(updateMap);
+        Database.executeBatch(updater, 100);
+        
+        // test direct update method.
+        Map<String, String> dataMap = new Map<String,String>{
+            'cons_id' => '0',
+            'null' => 'null'
+		};
+		LuminateAPI.updateCLOFields(dataMap);
+        Test.stopTest();
+    }
+    
+    // Tests LuminateAPI.synchronizeContacts
+    static testMethod void testFieldSyncViaTrigger() {
+        insert test_settings;
+        
+        Custom_Luminate_Field_Mapping__c mapping = new Custom_Luminate_Field_Mapping__c(Name='test map', Active__c=true);
+        mapping.Salesforce_API_Name__c = 'FirstName';
+        mapping.Online_Field_Name__c = 'null';
+        insert mapping;
+        
+        Contact c = ContactGenerator.spawn();
+        insert c;
+        Test.startTest();
+        c.FirstName = 'Name Changed';
+        update c;
+        Test.stopTest();
+    }
+    
+    static TestMethod void testFieldConversion() {
+        insert test_settings;
+        
+        Date d = Date.newInstance(1970, 1, 1);
+        DateTime dt = DateTime.newInstance(d, Time.newInstance(0,0,0,0));
+        Integer i = 1;
+        Boolean b = true;
+        String s = 'String';
+        Double n = 1.1;
+        
+        System.assertEquals('1970-01-01T00:00:00', LuminateAPI.fieldValueToString(d, Schema.DisplayType.DATE) );
+        System.assertEquals('1970-01-01T00:00:00', LuminateAPI.fieldValueToString(dt, Schema.DisplayType.DATETIME) );
+        System.assertEquals('1', LuminateAPI.fieldValueToString(i, Schema.DisplayType.INTEGER) );
+        System.assertEquals('TRUE', LuminateAPI.fieldValueToString(b, Schema.DisplayType.BOOLEAN) );
+		System.assertEquals('String', LuminateAPI.fieldValueToString(s, Schema.DisplayType.STRING) );
+        System.assertEquals('1.1', LuminateAPI.fieldValueToString(n, Schema.DisplayType.DOUBLE) );
+        
+    }
+    
+}
